@@ -1,6 +1,6 @@
 {
-  "name": "vibes",
-  "version": "1.0.0",
+  "name": "vibe-me",
+  "version": "2.0.0",
   "description": "Create a .vibe/ semantic repository layer for any project. Helps humans and AI agents understand your codebase without reading the source.",
   "keywords": [
     "vibes",
@@ -14,19 +14,20 @@
     "vibe-coding",
     "developer-tools"
   ],
-  "author": "",
+  "author": "Joshua M. Abrams",
   "license": "MIT",
   "bin": {
-    "vibes": "./bin/vibes.js"
+    "vibes": "bin/vibes.js"
   },
   "files": [
     "bin/",
     "templates/",
-    "spec/"
+    "spec/",
+    "Vibe.bat"
   ],
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/unlimitedinfinit/Vibes.git"
   },
   "engines": {
     "node": ">=16.0.0"

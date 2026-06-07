@@ -15,6 +15,7 @@ const VIBE_DIR = '.vibe';
 const DOCS_DIR = 'docs';
 const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
 const SPEC_DIR = path.join(__dirname, '..', 'spec');
+const HUB_CONFIG = path.join(process.env.USERPROFILE || process.env.HOME || '', '.vibes-hub');
 
 // All .vibe/ files — the full suite, always installed
 const VIBE_FILES = [
@@ -208,6 +209,124 @@ function cmdCheck(targetDir) {
 
   let passed = 0, failed = 0, warnings = 0, na = 0;
 
+  // ─── Universal quality checks ───
+  function checkQuality(content, file) {
+    const issues = [];
+
+    // FAIL: Still has template instruction comments
+    if (content.includes('INSTRUCTIONS FOR AI AGENT')) {
+      issues.push({ level: 'fail', msg: 'still contains template instructions (unfilled)' });
+      return issues;
+    }
+
+    // FAIL: Too short to be real content
+    const lines = content.split('\n').length;
+    if (lines < 8) {
+      issues.push({ level: 'fail', msg: `only ${lines} lines — needs real content` });
+      return issues;
+    }
+
+    // WARN: Has unfilled placeholder brackets like [Component Name]
+    const placeholders = content.match(/\[(?:Component|Persona|Experiment|Decision|Error|Deliverable|Feature|Issue)\s*\w*\]/gi);
+    if (placeholders && placeholders.length > 1) {
+      issues.push({ level: 'warn', msg: `${placeholders.length} unfilled placeholders (${placeholders[0]}, ...)` });
+    }
+
+    // WARN: Empty bullet points (lines that are just "- " or "- \n")
+    const emptyBullets = (content.match(/^- ?\s*$/gm) || []).length;
+    if (emptyBullets > 2) {
+      issues.push({ level: 'warn', msg: `${emptyBullets} empty bullet points` });
+    }
+
+    // WARN: Empty table rows (| | | |)
+    const emptyRows = (content.match(/^\|\s*\|\s*\|\s*\|/gm) || []).length;
+    if (emptyRows > 1) {
+      issues.push({ level: 'warn', msg: `${emptyRows} empty table rows` });
+    }
+
+    return issues;
+  }
+
+  // ─── File-specific structure checks ───
+  function checkStructure(content, file) {
+    const issues = [];
+
+    switch (file) {
+      case 'purpose.md':
+        if (!content.toLowerCase().includes('not do') && !content.toLowerCase().includes('does not'))
+          issues.push({ level: 'warn', msg: 'missing "NOT do" / scope boundary section' });
+        if (!content.toLowerCase().includes('who'))
+          issues.push({ level: 'warn', msg: 'doesn\'t mention who uses it' });
+        break;
+
+      case 'architecture.md':
+        if (!content.includes('→') && !content.includes('->') && !content.includes('connects') && !content.includes('talks to'))
+          issues.push({ level: 'warn', msg: 'no data flow described (missing → or connection language)' });
+        break;
+
+      case 'flows.md':
+        const flowHeaders = (content.match(/^##\s+/gm) || []).length;
+        if (flowHeaders < 2) issues.push({ level: 'warn', msg: `only ${flowHeaders} flow(s) — most projects have 3+` });
+        break;
+
+      case 'entities.md':
+        if (!content.toLowerCase().includes('depends') && !content.toLowerCase().includes('relationship'))
+          issues.push({ level: 'warn', msg: 'no dependency/relationship info for entities' });
+        break;
+
+      case 'decisions.md':
+        const decisionHeaders = (content.match(/^##\s+/gm) || []).length;
+        if (decisionHeaders < 2) issues.push({ level: 'warn', msg: `only ${decisionHeaders} decision(s) — aim for 3+` });
+        if (!content.includes('Depends On') && !content.includes('Threatened By') && !content.includes('depends on'))
+          issues.push({ level: 'warn', msg: 'no dependency graph fields (Depends On, Threatened By)' });
+        break;
+
+      case 'state.json':
+        try {
+          const s = JSON.parse(content);
+          if (!s.vibe_updated) issues.push({ level: 'warn', msg: 'missing vibe_updated timestamp' });
+          else {
+            const days = (Date.now() - new Date(s.vibe_updated).getTime()) / 86400000;
+            if (days > 30) issues.push({ level: 'warn', msg: `last updated ${Math.floor(days)} days ago — stale?` });
+          }
+          if (!s.project) issues.push({ level: 'warn', msg: 'missing project name' });
+        } catch {
+          issues.push({ level: 'fail', msg: 'invalid JSON' });
+        }
+        break;
+
+      case 'context.md':
+        if (!content.includes('## Current Focus'))
+          issues.push({ level: 'warn', msg: 'missing "Current Focus" section' });
+        else {
+          const focusIdx = content.indexOf('## Current Focus');
+          const nextSection = content.indexOf('##', focusIdx + 16);
+          const focusContent = content.substring(focusIdx, nextSection > 0 ? nextSection : undefined);
+          const focusBullets = (focusContent.match(/^- .{3,}/gm) || []).length;
+          if (focusBullets === 0) issues.push({ level: 'warn', msg: 'Current Focus has no entries' });
+        }
+        break;
+
+      case 'ai.md':
+        if (!content.toLowerCase().includes('never') && !content.toLowerCase().includes('don\'t') && !content.toLowerCase().includes('do not'))
+          issues.push({ level: 'warn', msg: 'no constraints defined — what should agents NOT touch?' });
+        break;
+
+      case 'product.md':
+        if (!content.toLowerCase().includes('retention') && !content.toLowerCase().includes('why') && !content.toLowerCase().includes('value'))
+          issues.push({ level: 'warn', msg: 'missing value prop or retention drivers' });
+        break;
+
+      case 'users.md':
+        if (!content.toLowerCase().includes('frustrat') && !content.toLowerCase().includes('fear') && !content.toLowerCase().includes('pain') && !content.toLowerCase().includes('goal'))
+          issues.push({ level: 'warn', msg: 'missing emotional reality (frustrations, fears, goals)' });
+        break;
+    }
+
+    return issues;
+  }
+
+  // ─── Run checks on .vibe/ ───
   if (hasVibe) {
     console.log('');
     console.log(dim('  ── .vibe/ ──'));
@@ -220,44 +339,32 @@ function cmdCheck(targetDir) {
       const content = fs.readFileSync(fp, 'utf-8').trim();
       const lines = content.split('\n').length;
 
-      // Check for N/A files (product/business layers marked not applicable)
-      if (content.match(/^N\/A/m) || content.match(/^"?N\/A/m)) {
+      // N/A check
+      if (content.match(/^N\/A/m)) {
         console.log(dim('  ⊘ ') + file + dim(' — N/A (not applicable)'));
         na++;
         continue;
       }
 
-      if (lines < 5) { console.log(yellow('  ⚠ ') + file + ` — looks empty (${lines} lines)`); warnings++; continue; }
+      // Run quality + structure checks
+      const allIssues = [...checkQuality(content, file), ...checkStructure(content, file)];
+      const fails = allIssues.filter(i => i.level === 'fail');
+      const warns = allIssues.filter(i => i.level === 'warn');
 
-      // File-specific checks
-      let warn = null;
-      if (file === 'purpose.md' && !content.toLowerCase().includes('not do')) warn = 'missing "NOT do" section';
-      if (file === 'decisions.md' && (content.match(/^## Why /gm) || []).length < 2) warn = 'fewer than 2 decisions';
-      if (file === 'entities.md' && !content.includes('What depends on it')) warn = 'missing dependency fields';
-      if (file === 'flows.md' && (content.match(/^## \d+\./gm) || []).length < 2) warn = 'fewer than 2 flows';
-      if (file === 'state.json') {
-        try {
-          const s = JSON.parse(content);
-          if (!s.vibe_updated) warn = 'missing vibe_updated';
-          else {
-            const days = (Date.now() - new Date(s.vibe_updated).getTime()) / 86400000;
-            if (days > 30) warn = `stale (${Math.floor(days)} days old)`;
-          }
-        } catch { console.log(red('  ✖ ') + file + ' — invalid JSON'); failed++; continue; }
+      if (fails.length > 0) {
+        console.log(red('  ✖ ') + file + ' — ' + fails[0].msg);
+        failed++;
+      } else if (warns.length > 0) {
+        console.log(yellow('  ⚠ ') + file + ` — ${lines} lines` + yellow(` (${warns.map(w => w.msg).join('; ')})`));
+        warnings++;
+      } else {
+        console.log(green('  ✔ ') + file + ` — ${lines} lines`);
+        passed++;
       }
-      if (file === 'context.md') {
-        if (!content.includes('## Current Focus') || content.match(/^- $/m)) warn = 'Current Focus is empty';
-      }
-      if (file === 'decisions.md' && !content.includes('Depends On') && !content.includes('Threatened By')) {
-        // Only warn if decisions exist but lack graph relationships
-        if ((content.match(/^## Why /gm) || []).length >= 2) warn = 'decisions missing relationship fields (Depends On, Threatened By)';
-      }
-
-      if (warn) { console.log(yellow('  ⚠ ') + file + ` — ${warn}`); warnings++; }
-      else { console.log(green('  ✔ ') + file + ` — ${lines} lines`); passed++; }
     }
   }
 
+  // ─── Run checks on docs/ ───
   if (hasDocs) {
     console.log('');
     console.log(dim('  ── docs/ ──'));
@@ -266,13 +373,28 @@ function cmdCheck(targetDir) {
     for (const file of DOCS_FILES) {
       const fp = path.join(docsDir, file);
       if (!exists(fp)) { console.log(yellow('  ⚠ ') + file + ' — missing'); warnings++; continue; }
+
       const content = fs.readFileSync(fp, 'utf-8').trim();
       const lines = content.split('\n').length;
-      if (lines < 5) { console.log(yellow('  ⚠ ') + file + ` — looks empty (${lines} lines)`); warnings++; }
-      else { console.log(green('  ✔ ') + file + ` — ${lines} lines`); passed++; }
+
+      const allIssues = checkQuality(content, file);
+      const fails = allIssues.filter(i => i.level === 'fail');
+      const warns = allIssues.filter(i => i.level === 'warn');
+
+      if (fails.length > 0) {
+        console.log(red('  ✖ ') + file + ' — ' + fails[0].msg);
+        failed++;
+      } else if (warns.length > 0) {
+        console.log(yellow('  ⚠ ') + file + ` — ${lines} lines` + yellow(` (${warns.map(w => w.msg).join('; ')})`));
+        warnings++;
+      } else {
+        console.log(green('  ✔ ') + file + ` — ${lines} lines`);
+        passed++;
+      }
     }
   }
 
+  // ─── Summary ───
   console.log('');
   let result = '';
   if (failed > 0) result = red(`${failed} failed`);
@@ -361,6 +483,393 @@ function cmdReset(targetDir) {
   cmdAll(targetDir);
 }
 
+function copyDirRecursive(src, dest) {
+  if (!exists(src)) return 0;
+  fs.mkdirSync(dest, { recursive: true });
+  let count = 0;
+  for (const item of fs.readdirSync(src)) {
+    const srcPath = path.join(src, item);
+    const destPath = path.join(dest, item);
+    const stat = fs.statSync(srcPath);
+    if (stat.isDirectory()) {
+      count += copyDirRecursive(srcPath, destPath);
+    } else {
+      if (item === 'VIBE_GUIDE.md') continue;
+      fs.writeFileSync(destPath, fs.readFileSync(srcPath));
+      count++;
+    }
+  }
+  return count;
+}
+
+function cmdExport(targetDir, hubPathArg) {
+  targetDir = path.resolve(targetDir);
+  let hubPath = hubPathArg;
+  if (!hubPath && exists(HUB_CONFIG)) {
+    hubPath = fs.readFileSync(HUB_CONFIG, 'utf-8').trim();
+  }
+  if (!hubPath) {
+    console.log(red('\n  ✖ No hub path specified.'));
+    console.log('');
+    console.log('  First time? Set your hub path:');
+    console.log(cyan('    vibes hub C:\\Users\\You\\Documents\\VibeHub'));
+    console.log('');
+    console.log('  Then run:');
+    console.log(cyan('    vibes export'));
+    console.log('');
+    process.exit(1);
+  }
+
+  hubPath = path.resolve(hubPath);
+  const name = getProjectName(targetDir);
+  const projectHub = path.join(hubPath, name);
+
+  console.log('');
+  console.log(bold('  📤 vibes export'));
+  console.log(dim(`  Exporting ${cyan(name)} → ${hubPath}`));
+  console.log('');
+
+  let total = 0;
+
+  const vibeDir = path.join(targetDir, VIBE_DIR);
+  if (exists(vibeDir)) {
+    const count = copyDirRecursive(vibeDir, path.join(projectHub, VIBE_DIR));
+    console.log(green('  ✔ ') + `.vibe/ — ${count} files`);
+    total += count;
+  } else {
+    console.log(yellow('  ⚠ ') + '.vibe/ not found, skipping');
+  }
+
+  const docsDir = path.join(targetDir, DOCS_DIR);
+  if (exists(docsDir)) {
+    const count = copyDirRecursive(docsDir, path.join(projectHub, DOCS_DIR));
+    console.log(green('  ✔ ') + `docs/ — ${count} files`);
+    total += count;
+  } else {
+    console.log(yellow('  ⚠ ') + 'docs/ not found, skipping');
+  }
+
+  const meta = { project: name, exported_at: now(), source: targetDir };
+  fs.writeFileSync(path.join(projectHub, 'export.json'), JSON.stringify(meta, null, 2), 'utf-8');
+  total++;
+
+  console.log('');
+  console.log(green(`  ✔ Exported ${total} files to ${projectHub}`));
+
+  generateHubIndex(hubPath);
+
+  console.log('');
+  console.log(dim('  Commit and push your hub repo to sync across machines:'));
+  console.log(cyan(`    cd "${hubPath}" && git add -A && git commit -m "export ${name}" && git push`));
+  console.log('');
+}
+
+function generateHubIndex(hubPath) {
+  const projects = [];
+  for (const dir of fs.readdirSync(hubPath)) {
+    const dirPath = path.join(hubPath, dir);
+    if (!fs.statSync(dirPath).isDirectory()) continue;
+    if (dir.startsWith('.') || dir.startsWith('_')) continue;
+
+    const exportFile = path.join(dirPath, 'export.json');
+    const vibeDir = path.join(dirPath, VIBE_DIR);
+    const docsDir = path.join(dirPath, DOCS_DIR);
+
+    let exportedAt = 'unknown';
+    if (exists(exportFile)) {
+      try {
+        const meta = JSON.parse(fs.readFileSync(exportFile, 'utf-8'));
+        exportedAt = meta.exported_at ? meta.exported_at.split('T')[0] : 'unknown';
+      } catch {}
+    }
+
+    let vibeFilled = 0, vibeNA = 0, vibeTotal = 0;
+    if (exists(vibeDir)) {
+      for (const f of VIBE_FILES) {
+        const fp = path.join(vibeDir, f);
+        if (!exists(fp)) continue;
+        vibeTotal++;
+        const content = fs.readFileSync(fp, 'utf-8').trim();
+        if (content.match(/^N\/A/m)) vibeNA++;
+        else if (content.split('\n').length >= 10) vibeFilled++;
+      }
+    }
+
+    let docsFilled = 0;
+    if (exists(docsDir)) {
+      for (const f of DOCS_FILES) {
+        const fp = path.join(docsDir, f);
+        if (!exists(fp)) continue;
+        if (fs.readFileSync(fp, 'utf-8').trim().split('\n').length >= 10) docsFilled++;
+      }
+    }
+
+    let purpose = '';
+    const purposeFile = path.join(vibeDir, 'purpose.md');
+    if (exists(purposeFile)) {
+      for (const line of fs.readFileSync(purposeFile, 'utf-8').split('\n')) {
+        const t = line.trim();
+        if (t && !t.startsWith('#') && !t.startsWith('<!--') && !t.startsWith('-->') && !t.startsWith('[')) {
+          purpose = t.substring(0, 80);
+          break;
+        }
+      }
+    }
+
+    projects.push({ name: dir, exportedAt, vibeFilled, vibeNA, vibeTotal, docsFilled, purpose });
+  }
+
+  if (projects.length === 0) return;
+
+  let md = `# Vibes Hub\n\n`;
+  md += `> Auto-generated index. Last updated: ${now().split('T')[0]}\n\n`;
+  md += `| Project | .vibe/ | docs/ | Last Export | Purpose |\n`;
+  md += `|---|---|---|---|---|\n`;
+  for (const p of projects.sort((a, b) => a.name.localeCompare(b.name))) {
+    const vs = p.vibeTotal > 0 ? `${p.vibeFilled}/${p.vibeTotal}` + (p.vibeNA > 0 ? ` (${p.vibeNA} N/A)` : '') : '—';
+    const ds = p.docsFilled > 0 ? `${p.docsFilled}/${DOCS_FILES.length}` : '—';
+    md += `| [${p.name}](./${p.name}/) | ${vs} | ${ds} | ${p.exportedAt} | ${p.purpose} |\n`;
+  }
+  md += `\n---\n\n**${projects.length} projects** tracked.\n`;
+
+  fs.writeFileSync(path.join(hubPath, 'index.md'), md, 'utf-8');
+  console.log(green('  ✔ ') + 'Updated hub index.md');
+}
+
+function cmdHub(hubPathArg) {
+  if (!hubPathArg) {
+    if (exists(HUB_CONFIG)) {
+      const saved = fs.readFileSync(HUB_CONFIG, 'utf-8').trim();
+      console.log(`\n  Hub path: ${cyan(saved)}\n`);
+    } else {
+      console.log(yellow('\n  No hub configured.'));
+      console.log(dim('  Set one with: vibes hub <path>\n'));
+    }
+    return;
+  }
+
+  const resolved = path.resolve(hubPathArg);
+  const isNew = !exists(resolved) || fs.readdirSync(resolved).length === 0;
+
+  // Create directory
+  fs.mkdirSync(resolved, { recursive: true });
+
+  console.log('');
+  console.log(bold('  🗂️  vibes hub setup'));
+  console.log('');
+
+  if (isNew) {
+    // Initialize git
+    const { execSync } = require('child_process');
+    try {
+      execSync('git init', { cwd: resolved, stdio: 'ignore' });
+      console.log(green('  ✔ ') + 'Created directory & initialized git');
+    } catch {
+      console.log(green('  ✔ ') + 'Created directory');
+      console.log(yellow('  ⚠ ') + 'Could not git init (git not found?)');
+    }
+
+    // Create README
+    const readme = [
+      '# Vibes Hub',
+      '',
+      'Central collection of `.vibe/` and `docs/` files from all my projects.',
+      '',
+      '## How this works',
+      '',
+      '1. Run `vibes export` from any project directory',
+      '2. Commit and push: `git add -A && git commit -m "update" && git push`',
+      '3. Pull on another machine: `git pull`',
+      '',
+      '## Projects',
+      '',
+      'See [index.md](index.md) for auto-generated dashboard.',
+      '',
+      '## Cross-Project Intelligence',
+      '',
+      'The `_insights/` folder is where AI analyzes patterns across all your projects.',
+      '',
+      '- **[ANALYZE.md](_insights/ANALYZE.md)** — Copy-paste prompt for your AI agent',
+      '- **[patterns.md](_insights/patterns.md)** — Architecture, security, and tech patterns',
+      '- **[standards.md](_insights/standards.md)** — Universal rules for all projects',
+      '- **[opportunities.md](_insights/opportunities.md)** — What one project can learn from another',
+      '',
+      'Export 3+ projects, then run the analysis prompt to find cross-project improvements.',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(resolved, 'README.md'), readme, 'utf-8');
+    console.log(green('  ✔ ') + 'Created README.md');
+
+    // Create .gitignore
+    fs.writeFileSync(path.join(resolved, '.gitignore'), 'node_modules/\n.DS_Store\nThumbs.db\n', 'utf-8');
+    console.log(green('  ✔ ') + 'Created .gitignore');
+
+    // Create _insights/ intelligence layer
+    const insightsDir = path.join(resolved, '_insights');
+    fs.mkdirSync(insightsDir, { recursive: true });
+
+    // Analysis prompt — the AI reads this to know what to do
+    const analyze = [
+      '# Hub Analysis Prompt',
+      '',
+      '> Copy-paste this to your AI agent after exporting 3+ projects.',
+      '',
+      '---',
+      '',
+      '```',
+      'I have a Vibes Hub — a central collection of .vibe/ and docs/ files',
+      'from all my projects. Read every project folder in this hub and:',
+      '',
+      '1. CROSS-PROJECT PATTERNS',
+      '   - What architectural patterns appear across multiple projects?',
+      '   - What security approaches are used? Are they consistent?',
+      '   - What tech stack choices are shared? Where do they diverge?',
+      '   - What naming conventions or coding standards are consistent?',
+      '',
+      '2. BEST PRACTICES TO REPLICATE',
+      '   - Which project has the best documentation quality?',
+      '   - Which project solved a problem that others still have?',
+      '   - What did one project do exceptionally well that could set',
+      '     the standard for all projects?',
+      '   - Are there security, testing, or deployment practices from',
+      '     one project that others are missing?',
+      '',
+      '3. TRANSFERABLE IMPROVEMENTS',
+      '   - For each project, list specific improvements it could adopt',
+      '     from another project. Be concrete: "Project A could adopt',
+      '     Project B\'s approach to X because Y."',
+      '   - Identify shared problems that could have a shared solution.',
+      '',
+      '4. RISKS AND GAPS',
+      '   - Which projects have risks that could affect other projects?',
+      '   - Are there shared dependencies that create portfolio risk?',
+      '   - Which projects have missing or weak documentation areas?',
+      '',
+      '5. UNIVERSAL STANDARDS',
+      '   - Based on what works best across projects, propose standards',
+      '     that should apply to ALL projects going forward.',
+      '   - These could be file size limits, security practices, naming',
+      '     conventions, documentation requirements, etc.',
+      '',
+      'Write your findings into the _insights/ folder:',
+      '- patterns.md — Cross-project patterns',
+      '- standards.md — Proposed universal standards',
+      '- opportunities.md — Specific transferable improvements',
+      '',
+      'Be specific. Reference actual project names and files.',
+      '```',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(insightsDir, 'ANALYZE.md'), analyze, 'utf-8');
+
+    // Patterns skeleton
+    const patterns = [
+      '# Cross-Project Patterns',
+      '',
+      '> Auto-populated by AI analysis. Run the prompt in ANALYZE.md.',
+      '',
+      '## Architecture Patterns',
+      '',
+      '<!-- What architectural approaches appear across multiple projects? -->',
+      '',
+      '## Security Patterns',
+      '',
+      '<!-- How do projects handle auth, encryption, secrets? -->',
+      '',
+      '## Shared Tech Stack',
+      '',
+      '<!-- Languages, frameworks, databases used across projects -->',
+      '',
+      '| Technology | Used In | Notes |',
+      '|---|---|---|',
+      '| | | |',
+      '',
+      '## Common Anti-Patterns',
+      '',
+      '<!-- Mistakes or bad patterns that appear in multiple projects -->',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(insightsDir, 'patterns.md'), patterns, 'utf-8');
+
+    // Standards skeleton
+    const standards = [
+      '# Universal Standards',
+      '',
+      '> Standards that should apply to ALL projects, based on what works best.',
+      '',
+      '## Code Standards',
+      '',
+      '<!-- File size limits, naming conventions, banned patterns -->',
+      '',
+      '## Documentation Standards',
+      '',
+      '<!-- What every project must document, minimum quality bar -->',
+      '',
+      '## Security Standards',
+      '',
+      '<!-- Auth patterns, encryption requirements, secrets management -->',
+      '',
+      '## AI Agent Standards',
+      '',
+      '<!-- Rules every AI agent must follow across all projects -->',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(insightsDir, 'standards.md'), standards, 'utf-8');
+
+    // Opportunities skeleton
+    const opportunities = [
+      '# Transferable Improvements',
+      '',
+      '> Specific things one project does well that others should adopt.',
+      '',
+      '## [Source Project] → [Target Project]',
+      '',
+      '**What:** [Specific practice or solution]',
+      '',
+      '**Why:** [Why the target project would benefit]',
+      '',
+      '**How:** [What the target project needs to change]',
+      '',
+      '---',
+      '',
+      '<!-- Copy the template above for each transferable improvement. -->',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(insightsDir, 'opportunities.md'), opportunities, 'utf-8');
+
+    console.log(green('  ✔ ') + 'Created _insights/ (analysis prompt + templates)');
+  } else {
+    console.log(green('  ✔ ') + 'Directory already exists');
+  }
+
+  // Save config
+  fs.writeFileSync(HUB_CONFIG, resolved, 'utf-8');
+  console.log(green('  ✔ ') + `Hub path saved: ${cyan(resolved)}`);
+
+  console.log('');
+  console.log(bold('  Next — connect to GitHub:'));
+  console.log('');
+  console.log(dim('  1. Go to ') + cyan('github.com/new'));
+  console.log(dim('     Name: ') + bold('VibeHub') + dim(' (or whatever you want)'));
+  console.log(dim('     Visibility: ') + bold('Private'));
+  console.log(dim('     Click "Create repository"'));
+  console.log('');
+  console.log(dim('  2. Run these commands:'));
+  console.log('');
+  console.log(cyan(`     cd "${resolved}"`));
+  console.log(cyan('     git remote add origin git@github.com:YOUR_USERNAME/VibeHub.git'));
+  console.log(cyan('     git add -A && git commit -m "init hub" && git push -u origin main'));
+  console.log('');
+  console.log(dim('  After that, exporting from any project is just:'));
+  console.log('');
+  console.log(cyan('     vibes export'));
+  console.log(cyan(`     cd "${resolved}" && git add -A && git commit -m "update" && git push`));
+  console.log('');
+  console.log(dim('  On another computer, clone the repo and run:'));
+  console.log(cyan('     vibes hub <path-to-cloned-repo>'));
+  console.log('');
+}
+
 function printNextSteps() {
   console.log('');
   console.log(bold('  What to do next:'));
@@ -381,13 +890,18 @@ function printHelp() {
   console.log('');
   console.log('  ' + bold('Usage:'));
   console.log('');
-  console.log('    vibes init      Create .vibe/ with the full suite (15 files + guide)');
-  console.log('    vibes docs      Create docs/ operational documentation (11 files)');
-  console.log('    vibes all       Create both .vibe/ and docs/ at once');
-  console.log('    vibes check     Validate all files for completeness');
-  console.log('    vibes status    Quick health dashboard');
-  console.log('    vibes reset     Delete and recreate everything');
-  console.log('    vibes help      Show this help message');
+  console.log('    vibes init            Create .vibe/ with the full suite (15 files + guide)');
+  console.log('    vibes docs            Create docs/ operational documentation (11 files)');
+  console.log('    vibes all             Create both .vibe/ and docs/ at once');
+  console.log('    vibes check           Validate all files for completeness');
+  console.log('    vibes status          Quick health dashboard');
+  console.log('    vibes reset           Delete and recreate everything');
+  console.log('');
+  console.log('  ' + bold('Hub (cross-project sync):'));
+  console.log('');
+  console.log('    vibes hub <path>      Set your central hub directory (saved globally)');
+  console.log('    vibes export          Export .vibe/ + docs/ to your hub');
+  console.log('    vibes export <path>   Export to a specific hub path');
   console.log('');
   console.log('  ' + bold('.vibe/') + dim(' — Project memory'));
   console.log(dim('  Core:      purpose · architecture · flows · entities · decisions · state'));
@@ -420,6 +934,8 @@ switch (command) {
   case 'check':   cmdCheck(targetDir); break;
   case 'status':  cmdStatus(targetDir); break;
   case 'reset':   cmdReset(targetDir); break;
+  case 'export':  cmdExport('.', args[1]); break;
+  case 'hub':     cmdHub(args[1]); break;
   case 'help': case '--help': case '-h': printHelp(); break;
   default:
     console.log(red(`\n  Unknown command: ${command}`));

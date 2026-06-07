@@ -200,9 +200,12 @@ Download [`Vibe.bat`](Vibe.bat), drop it in any project folder, and double-click
 | `vibes init` | Create `.vibe/` with the full suite — 15 files + guide |
 | `vibes docs` | Create `docs/` operational documentation — 11 files |
 | `vibes all` | Create both `.vibe/` and `docs/` at once |
-| `vibes check` | Validate all files for completeness and quality |
+| `vibes check` | Validate all files — catches unfilled templates, empty sections, missing structure |
 | `vibes status` | Quick health dashboard with filled/N-A/empty counts |
 | `vibes reset` | Delete and recreate everything |
+| | |
+| `vibes hub <path>` | Set up a central hub — git inits, creates `_insights/`, saves config |
+| `vibes export` | Export `.vibe/` + `docs/` from current project to your hub |
 | `vibes help` | Show all commands |
 
 ---
@@ -257,10 +260,27 @@ Every line in `.vibe/` should pass this test:
 
 ## 🔍 Quality Validation
 
+`vibes check` doesn't just count lines — it catches real problems:
+
 ```bash
 vibes check
 ```
 
+**On a freshly scaffolded project (before AI fills it out):**
+```
+  🔍 vibes check
+
+  ── .vibe/ ──
+
+  ✖ purpose.md — still contains template instructions (unfilled)
+  ✖ architecture.md — still contains template instructions (unfilled)
+  ✖ flows.md — still contains template instructions (unfilled)
+  ...
+
+  Result: 24 failed, 1 warnings, 0 passed
+```
+
+**After your AI agent fills everything out:**
 ```
   🔍 vibes check
 
@@ -270,7 +290,7 @@ vibes check
   ✔ architecture.md — 86 lines
   ✔ flows.md — 144 lines
   ✔ entities.md — 135 lines
-  ✔ decisions.md — 91 lines
+  ⚠ decisions.md — 91 lines (no dependency graph fields)
   ✔ state.json — 82 lines
   ✔ context.md — 28 lines
   ✔ ai.md — 45 lines
@@ -280,25 +300,78 @@ vibes check
   ✔ experiments.md — 19 lines
   ⊘ business.md — N/A (not applicable)
   ⊘ market.md — N/A (not applicable)
-  ⊘ risks.md — 34 lines
+  ✔ risks.md — 34 lines
 
-  ── docs/ ──
-
-  ✔ README.md — 45 lines
-  ✔ topology.md — 120 lines
-  ✔ architecture.md — 89 lines
-  ✔ api.md — 200 lines
-  ✔ issues.md — 34 lines
-  ✔ resolved.md — 67 lines
-  ✔ roadmap.md — 42 lines
-  ✔ developer_guide.md — 95 lines
-  ✔ troubleshooting.md — 55 lines
-  ✔ glossary.md — 28 lines
-
-  Result: 2 N/A, 23 passed ✔
+  Result: 2 N/A, 1 warnings, 22 passed
 ```
 
-Files marked N/A are recognized as intentionally not applicable — not penalized.
+What it catches:
+- **Unfilled templates** — files that still have `INSTRUCTIONS FOR AI AGENT` (hard fail)
+- **Missing structure** — `purpose.md` without a "NOT do" section, `decisions.md` without dependency graph
+- **Empty bullets/tables** — placeholder content that wasn't filled in
+- **Stale data** — `state.json` not updated in 30+ days
+- **Missing emotional reality** — `users.md` without frustrations, fears, or goals
+- **N/A files** — recognized and not penalized
+
+---
+
+## 🗂️ Vibes Hub — Cross-Project Sync + Intelligence
+
+When you're running vibes across multiple projects (and multiple computers), the **hub** lets you collect, compare, and analyze them all in one place.
+
+### One-time setup
+
+```bash
+vibes hub ~/Documents/VibeHub
+```
+
+This creates a folder with git, a README, and an `_insights/` intelligence layer — then walks you through connecting it to a private GitHub repo.
+
+### Export from any project
+
+```bash
+cd your-project
+vibes export
+```
+
+Copies `.vibe/` and `docs/` into your hub, organized by project name. Auto-generates an `index.md` dashboard.
+
+### Sync across machines
+
+Push from one machine, pull on another. Same private repo, all your projects.
+
+### Cross-project intelligence
+
+After exporting 3+ projects, tell your AI agent:
+
+> *"Read `_insights/ANALYZE.md` in my Vibes Hub and follow the instructions."*
+
+The AI reads every project's `.vibe/` files and fills out:
+
+| File | What it finds |
+|:---|:---|
+| `_insights/patterns.md` | Architecture, security, and tech stack patterns across projects |
+| `_insights/standards.md` | Universal rules that should apply everywhere |
+| `_insights/opportunities.md` | "Omni does X well → JustLegal should adopt it" |
+
+```
+VibeHub/
+├── index.md              Auto-generated dashboard
+├── _insights/
+│   ├── ANALYZE.md        Prompt for AI analysis
+│   ├── patterns.md       Cross-project patterns
+│   ├── standards.md      Universal standards
+│   └── opportunities.md  Transferable improvements
+├── Omni/
+│   ├── .vibe/
+│   └── docs/
+├── JustLegal/
+│   ├── .vibe/
+│   └── docs/
+└── ...
+```
+
+One project's best practice becomes every project's standard.
 
 ---
 

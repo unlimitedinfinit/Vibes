@@ -5,7 +5,75 @@
 
 ---
 
-## The Prompt
+## Step 1: Scaffold the project
+
+Open a terminal in your project folder:
+
+```bash
+npx vibe-me all
+```
+
+Creates `.vibe/` (15 files) + `docs/` (11 files) with skeletons.
+
+## Step 2: Tell your AI agent
+
+```
+Read .vibe/VIBE_GUIDE.md, then analyze this codebase and fill out all
+the skeleton files in .vibe/ and docs/. For files that aren't relevant
+(like business.md for a library), write N/A with a brief explanation.
+Ask me any questions you can't answer from the code.
+```
+
+## Step 3: Validate
+
+```bash
+npx vibe-me check
+```
+
+This catches real problems — unfilled templates, missing structure, empty sections.
+Everything should pass before you commit.
+
+## Step 4 (optional): Export to your hub
+
+If you have a Vibes Hub set up for cross-project sync:
+
+```bash
+npx vibe-me export
+```
+
+Then push your hub repo to sync across machines.
+
+---
+
+## First-time hub setup
+
+If you're managing multiple projects across multiple computers:
+
+```bash
+# One-time: create the hub (auto-inits git + creates _insights/)
+npx vibe-me hub ~/Documents/VibeHub
+
+# Connect to GitHub (the command prints these exact steps)
+cd ~/Documents/VibeHub
+git remote add origin git@github.com:YOUR_USERNAME/VibeHub.git
+git add -A && git commit -m "init hub" && git push -u origin main
+```
+
+Then from any project on any machine:
+```bash
+npx vibe-me export
+cd ~/Documents/VibeHub && git add -A && git commit -m "update" && git push
+```
+
+On another computer:
+```bash
+git clone git@github.com:YOUR_USERNAME/VibeHub.git
+npx vibe-me hub ~/Documents/VibeHub
+```
+
+---
+
+## The Detailed AI Prompt (for more control)
 
 ```
 I want you to populate the .vibe/ semantic layer and docs/ for this project.
@@ -47,24 +115,24 @@ Follow these steps IN ORDER:
    - architecture.md — systems and how they connect (not files — systems)
    - flows.md — user journeys, step by step
    - entities.md — important nouns with "What depends on it?" for each
-   - decisions.md — why things exist, with Depends On / Threatened By / Related fields
+   - decisions.md — why things exist, with Depends On / Threatened By
    - state.json — machine-readable project health
 
    Living context:
    - context.md — current focus, blockers, next up, active experiments
 
    AI agent guide:
-   - ai.md — never touch, safe to refactor, requires human approval, project rules
+   - ai.md — never touch, safe to refactor, requires human approval
 
    Product memory:
-   - product.md — vision, value prop, what drives retention, where users get confused
+   - product.md — vision, value prop, what drives retention
    - users.md — personas with emotional reality (fears, frustrations, goals)
    - metrics.md — what numbers matter and why
    - experiments.md — what's being tested, hypotheses, results
 
    Business memory:
-   - business.md — strategy, pricing rationale, revenue model, goals
-   - market.md — competitors, positioning, opportunities, threats
+   - business.md — strategy, pricing rationale, revenue model
+   - market.md — competitors, positioning, opportunities
    - risks.md — technical, legal, market, operational risks
 
    Then fill out [PROJECT_ROOT]/docs/:
@@ -73,30 +141,15 @@ Follow these steps IN ORDER:
 
 4. RULES:
    - For .vibe/ files: describe INTENT, not IMPLEMENTATION
-   - No file paths, function names, or class hierarchies in .vibe/ files
-   - Every .vibe/ file must pass: "Would this still be true after a complete rewrite?"
-   - For files that aren't relevant (e.g., business.md for a library):
-     Write "N/A — This is a [type], not a [business/product]." Do NOT delete the file.
-   - decisions.md must include Depends On, Threatened By, Related, Revisit When
-   - entities.md must include "What depends on it?" for every entity
+   - No file paths or function names in .vibe/ files
+   - Every .vibe/ file must pass: "Would this still be true after a rewrite?"
+   - For irrelevant files: write "N/A — [reason]." Do NOT delete the file.
+   - decisions.md must include Depends On, Threatened By, Revisit When
    - state.json must have valid JSON with vibe_updated set to now
-   - context.md should reflect what's happening THIS WEEK
+
+5. VALIDATE:
+   When done, run: npx vibe-me check
+   Fix anything that doesn't pass.
 
 Do not skip the discovery phase. Do not skip asking me questions.
 ```
-
----
-
-## Usage
-
-1. Open a new conversation with your AI coding agent
-2. Make sure the agent has access to the project's filesystem
-3. Run `npx vibe-me all` in the project root to scaffold the skeletons
-4. Paste the prompt above (with the path filled in)
-5. Answer the agent's clarifying questions
-6. Review the generated files
-7. Commit everything to version control
-
-**Even simpler** — after scaffolding, just tell your agent:
-
-> *"Read `.vibe/VIBE_GUIDE.md` and fill out all the skeletons in `.vibe/` and `docs/`. Ask me anything you can't determine from the code."*

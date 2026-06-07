@@ -2,19 +2,20 @@
 :: ──────────────────────────────────────────────
 :: Vibe.bat — One-click project setup
 :: Drop this file in any project root and double-click.
-:: Creates .vibe/ semantic layer + docs/ operational docs.
+:: Creates .vibe/ (15 files) + docs/ (11 files)
 :: ──────────────────────────────────────────────
 
 echo.
-echo   ⚡ Vibe.bat — Setting up semantic layer + docs
-echo   ─────────────────────────────────────────────────
+echo   ======================================================
+echo      vibes — The complete semantic layer for any project
+echo   ======================================================
 echo.
 
 :: Check if Node.js is installed
 where node >nul 2>nul
 if %ERRORLEVEL% neq 0 (
-    echo   ✖ Node.js is not installed.
-    echo     Download it from https://nodejs.org
+    echo   ERROR: Node.js is not installed.
+    echo   Download it from https://nodejs.org
     echo.
     pause
     exit /b 1
@@ -26,14 +27,17 @@ echo.
 call npx -y vibe-me@latest all
 
 echo.
-echo   ─────────────────────────────────────────────────
-echo   ✔ Done! Now tell your AI agent:
+echo   ======================================================
+echo   DONE! Your .vibe/ and docs/ folders are ready.
+echo.
+echo   Next step — tell your AI coding agent:
 echo.
 echo     "Read .vibe/VIBE_GUIDE.md, then analyze this
 echo      codebase and fill out all skeleton files in
-echo      .vibe/ and docs/. Ask me any questions you
-echo      can't answer from the code."
+echo      .vibe/ and docs/. For files that aren't relevant
+echo      write N/A with a brief explanation. Ask me any
+echo      questions you can't answer from the code."
 echo.
-echo   ─────────────────────────────────────────────────
+echo   ======================================================
 echo.
 pause

@@ -6,11 +6,9 @@
   This is the MOST IMPORTANT file. Most repos are impossible to understand 
   because nobody recorded WHY choices were made.
   
-  For each decision:
-  1. State the choice that was made
-  2. Explain the context and constraints
-  3. List the alternatives that were considered
-  4. State the tradeoff that was accepted
+  For each decision, include ALL fields — especially "Depends On" and 
+  "Threatened By". These create a decision GRAPH that lets AI reason about 
+  cascading impacts when conditions change.
   
   Research sources: git log, PR descriptions, code comments (HACK/NOTE/TODO),
   pinned dependency versions, README history.
@@ -27,6 +25,11 @@
 [Alternatives considered and why they were rejected]
 
 [Tradeoffs accepted — what's the downside of this choice?]
+
+- **Depends On:** [What assumptions must remain true for this decision to hold?]
+- **Threatened By:** [What changes would force us to reconsider?]
+- **Related Decisions:** [Other decisions that are connected to this one]
+- **Revisit When:** [Trigger condition — when should this be re-evaluated?]
 
 ---
 

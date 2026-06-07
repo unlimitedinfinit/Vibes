@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-// vibes — Semantic repository layers + standardized docs for humans and AI
+// vibes — The complete semantic layer for any project
+// Repository memory + Product memory + Business memory + AI instructions
 // Zero dependencies. Single file. Works with npx.
 
 const fs = require('fs');
@@ -15,11 +16,22 @@ const DOCS_DIR = 'docs';
 const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
 const SPEC_DIR = path.join(__dirname, '..', 'spec');
 
+// All .vibe/ files — the full suite, always installed
 const VIBE_FILES = [
+  // Core — repository memory
   'purpose.md', 'architecture.md', 'flows.md',
-  'entities.md', 'decisions.md', 'state.json'
+  'entities.md', 'decisions.md', 'state.json',
+  // Living context
+  'context.md',
+  // AI agent guide
+  'ai.md',
+  // Product memory
+  'product.md', 'users.md', 'metrics.md', 'experiments.md',
+  // Business memory
+  'business.md', 'market.md', 'risks.md',
 ];
 
+// All docs/ files
 const DOCS_FILES = [
   'README.md', 'topology.md', 'architecture.md', 'api.md',
   'issues.md', 'resolved.md', 'roadmap.md', 'developer_guide.md',
@@ -31,7 +43,7 @@ const DOCS_EXTRA = ['decisions/0001-template.md'];
 const SPEC_FILE = 'VIBE_GUIDE.md';
 
 // ─────────────────────────────────────────────
-// Colors (no dependencies — raw ANSI)
+// Colors (raw ANSI, zero dependencies)
 // ─────────────────────────────────────────────
 
 const bold = (s) => `\x1b[1m${s}\x1b[0m`;
@@ -40,7 +52,6 @@ const cyan = (s) => `\x1b[36m${s}\x1b[0m`;
 const yellow = (s) => `\x1b[33m${s}\x1b[0m`;
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 const red = (s) => `\x1b[31m${s}\x1b[0m`;
-const magenta = (s) => `\x1b[35m${s}\x1b[0m`;
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -60,6 +71,8 @@ function getProjectName(dir) {
     ['Cargo.toml', /^name\s*=\s*"(.+)"/m],
     ['go.mod', /^module\s+(.+)/m],
     ['pyproject.toml', /^name\s*=\s*"(.+)"/m],
+    ['setup.py', /name\s*=\s*['"](.+?)['"]/m],
+    ['CMakeLists.txt', /project\s*\(\s*(\S+)/m],
   ]) {
     const p = path.join(dir, file);
     if (!exists(p)) continue;
@@ -95,13 +108,24 @@ function cmdInit(targetDir) {
 
   console.log('');
   console.log(bold('  ⚡ vibes init'));
-  console.log(dim(`  Creating .vibe/ semantic layer for ${cyan(name)}`));
+  console.log(dim(`  Creating .vibe/ for ${cyan(name)} — full suite`));
   console.log('');
 
   fs.mkdirSync(vibeDir, { recursive: true });
 
+  // Group labels for visual output
+  const groups = {
+    'purpose.md': '── Core (repository memory) ──',
+    'context.md': '── Living Context ──',
+    'ai.md': '── AI Agent Guide ──',
+    'product.md': '── Product Memory ──',
+    'business.md': '── Business Memory ──',
+  };
+
   let count = 0;
   for (const file of VIBE_FILES) {
+    if (groups[file]) console.log(dim(`  ${groups[file]}`));
+
     const src = path.join(TEMPLATES_DIR, file);
     const dest = path.join(vibeDir, file);
     if (file === 'state.json') {
@@ -117,6 +141,7 @@ function cmdInit(targetDir) {
 
   // Copy guide
   copy(path.join(SPEC_DIR, SPEC_FILE), path.join(vibeDir, SPEC_FILE));
+  console.log('');
   console.log(green('  ✔ ') + dim('.vibe/') + SPEC_FILE + dim(' (agent instructions)'));
   count++;
 
@@ -130,29 +155,24 @@ function cmdDocs(targetDir) {
   const name = getProjectName(targetDir);
 
   if (exists(docsDir)) {
-    // Check if it has content already
     const contents = fs.readdirSync(docsDir);
     if (contents.length > 0) {
       console.log(yellow('\n  ⚠ docs/ already exists with ' + contents.length + ' items.'));
-      console.log(dim('    Skipping files that already exist. Adding missing ones only.\n'));
+      console.log(dim('    Adding missing files only.\n'));
     }
   }
 
   console.log('');
   console.log(bold('  📄 vibes docs'));
-  console.log(dim(`  Creating docs/ structure for ${cyan(name)}`));
+  console.log(dim(`  Creating docs/ for ${cyan(name)}`));
   console.log('');
 
-  // Create docs dir and subdirs
   fs.mkdirSync(docsDir, { recursive: true });
   for (const sub of DOCS_DIRS) {
     fs.mkdirSync(path.join(docsDir, sub), { recursive: true });
   }
 
-  let created = 0;
-  let skipped = 0;
-
-  // Copy doc files (skip if they already exist)
+  let created = 0, skipped = 0;
   for (const file of [...DOCS_FILES, ...DOCS_EXTRA]) {
     const src = path.join(TEMPLATES_DIR, 'docs', file);
     const dest = path.join(docsDir, file);
@@ -167,19 +187,8 @@ function cmdDocs(targetDir) {
   }
 
   console.log('');
-  if (skipped > 0) {
-    console.log(green(`  ✔ Created ${created} files`) + dim(`, skipped ${skipped} existing`));
-  } else {
-    console.log(green(`  ✔ Created ${created} files in docs/`));
-  }
-  console.log('');
-  console.log(bold('  Next steps:'));
-  console.log('');
-  console.log('  Tell your AI agent:');
-  console.log('');
-  console.log(cyan('     "Read .vibe/VIBE_GUIDE.md for context, then analyze'));
-  console.log(cyan('      the codebase and fill out all skeleton files in docs/.'));
-  console.log(cyan('      Ask me any questions you can\'t answer from the code."'));
+  if (skipped > 0) console.log(green(`  ✔ Created ${created} files`) + dim(`, skipped ${skipped} existing`));
+  else console.log(green(`  ✔ Created ${created} files in docs/`));
   console.log('');
 }
 
@@ -197,12 +206,11 @@ function cmdCheck(targetDir) {
   console.log('');
   console.log(bold('  🔍 vibes check'));
 
-  let passed = 0, failed = 0, warnings = 0;
+  let passed = 0, failed = 0, warnings = 0, na = 0;
 
-  // Check .vibe/
   if (hasVibe) {
     console.log('');
-    console.log(dim('  ── .vibe/ (semantic layer) ──'));
+    console.log(dim('  ── .vibe/ ──'));
     console.log('');
 
     for (const file of VIBE_FILES) {
@@ -212,23 +220,37 @@ function cmdCheck(targetDir) {
       const content = fs.readFileSync(fp, 'utf-8').trim();
       const lines = content.split('\n').length;
 
+      // Check for N/A files (product/business layers marked not applicable)
+      if (content.match(/^N\/A/m) || content.match(/^"?N\/A/m)) {
+        console.log(dim('  ⊘ ') + file + dim(' — N/A (not applicable)'));
+        na++;
+        continue;
+      }
+
       if (lines < 5) { console.log(yellow('  ⚠ ') + file + ` — looks empty (${lines} lines)`); warnings++; continue; }
 
-      // File-specific quality checks
+      // File-specific checks
       let warn = null;
       if (file === 'purpose.md' && !content.toLowerCase().includes('not do')) warn = 'missing "NOT do" section';
       if (file === 'decisions.md' && (content.match(/^## Why /gm) || []).length < 2) warn = 'fewer than 2 decisions';
-      if (file === 'entities.md' && !content.includes('What depends on it')) warn = 'missing "What depends on it?" fields';
+      if (file === 'entities.md' && !content.includes('What depends on it')) warn = 'missing dependency fields';
       if (file === 'flows.md' && (content.match(/^## \d+\./gm) || []).length < 2) warn = 'fewer than 2 flows';
       if (file === 'state.json') {
         try {
           const s = JSON.parse(content);
-          if (!s.vibe_updated) warn = 'missing vibe_updated timestamp';
+          if (!s.vibe_updated) warn = 'missing vibe_updated';
           else {
             const days = (Date.now() - new Date(s.vibe_updated).getTime()) / 86400000;
-            if (days > 30) warn = `last updated ${Math.floor(days)} days ago`;
+            if (days > 30) warn = `stale (${Math.floor(days)} days old)`;
           }
         } catch { console.log(red('  ✖ ') + file + ' — invalid JSON'); failed++; continue; }
+      }
+      if (file === 'context.md') {
+        if (!content.includes('## Current Focus') || content.match(/^- $/m)) warn = 'Current Focus is empty';
+      }
+      if (file === 'decisions.md' && !content.includes('Depends On') && !content.includes('Threatened By')) {
+        // Only warn if decisions exist but lack graph relationships
+        if ((content.match(/^## Why /gm) || []).length >= 2) warn = 'decisions missing relationship fields (Depends On, Threatened By)';
       }
 
       if (warn) { console.log(yellow('  ⚠ ') + file + ` — ${warn}`); warnings++; }
@@ -236,28 +258,28 @@ function cmdCheck(targetDir) {
     }
   }
 
-  // Check docs/
   if (hasDocs) {
     console.log('');
-    console.log(dim('  ── docs/ (operational docs) ──'));
+    console.log(dim('  ── docs/ ──'));
     console.log('');
 
     for (const file of DOCS_FILES) {
       const fp = path.join(docsDir, file);
       if (!exists(fp)) { console.log(yellow('  ⚠ ') + file + ' — missing'); warnings++; continue; }
-
       const content = fs.readFileSync(fp, 'utf-8').trim();
       const lines = content.split('\n').length;
-
       if (lines < 5) { console.log(yellow('  ⚠ ') + file + ` — looks empty (${lines} lines)`); warnings++; }
       else { console.log(green('  ✔ ') + file + ` — ${lines} lines`); passed++; }
     }
   }
 
   console.log('');
-  if (failed > 0) console.log(red(`  Result: ${failed} failed, ${warnings} warnings, ${passed} passed`));
-  else if (warnings > 0) console.log(yellow(`  Result: ${warnings} warnings, ${passed} passed`));
-  else console.log(green(`  Result: All ${passed} files pass ✔`));
+  let result = '';
+  if (failed > 0) result = red(`${failed} failed`);
+  if (warnings > 0) result += (result ? ', ' : '') + yellow(`${warnings} warnings`);
+  if (na > 0) result += (result ? ', ' : '') + dim(`${na} N/A`);
+  result += (result ? ', ' : '') + green(`${passed} passed`);
+  console.log(`  Result: ${result}`);
   console.log('');
 }
 
@@ -270,23 +292,25 @@ function cmdStatus(targetDir) {
   console.log(bold(`  📊 ${name}`));
   console.log('');
 
-  // .vibe status
   if (exists(vibeDir)) {
-    const filled = VIBE_FILES.filter(f => {
+    // Count filled vs N/A vs empty
+    let filled = 0, naCount = 0, empty = 0;
+    for (const f of VIBE_FILES) {
       const fp = path.join(vibeDir, f);
-      if (!exists(fp)) return false;
-      return fs.readFileSync(fp, 'utf-8').trim().split('\n').length >= 10;
-    }).length;
-    const icon = filled === VIBE_FILES.length ? green('✔') : filled > 0 ? yellow('◐') : red('✖');
-    console.log(`  ${icon} .vibe/   ${filled}/${VIBE_FILES.length} files filled`);
+      if (!exists(fp)) { empty++; continue; }
+      const content = fs.readFileSync(fp, 'utf-8').trim();
+      if (content.match(/^N\/A/m)) naCount++;
+      else if (content.split('\n').length >= 10) filled++;
+      else empty++;
+    }
+    const icon = empty === 0 ? green('✔') : filled > 0 ? yellow('◐') : red('✖');
+    console.log(`  ${icon} .vibe/   ${filled} filled, ${naCount} N/A, ${empty} empty  (${VIBE_FILES.length} total)`);
 
-    // Show state.json health if available
     const statePath = path.join(vibeDir, 'state.json');
     if (exists(statePath)) {
       try {
         const s = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
         if (s.health) console.log(dim(`             health: ${s.health}`));
-        if (s.version) console.log(dim(`             version: ${s.version}`));
         if (s.vibe_updated) {
           const days = Math.floor((Date.now() - new Date(s.vibe_updated).getTime()) / 86400000);
           console.log(dim(`             updated: ${days === 0 ? 'today' : days + ' days ago'}`));
@@ -297,7 +321,6 @@ function cmdStatus(targetDir) {
     console.log(red('  ✖') + ' .vibe/   not initialized');
   }
 
-  // docs status
   if (exists(docsDir)) {
     const filled = DOCS_FILES.filter(f => {
       const fp = path.join(docsDir, f);
@@ -321,17 +344,10 @@ function cmdAll(targetDir) {
   const vibeDir = path.join(targetDir, VIBE_DIR);
   const docsDir = path.join(targetDir, DOCS_DIR);
 
-  if (!exists(vibeDir)) {
-    cmdInit(targetDir);
-  } else {
-    console.log(yellow('\n  ⊘ .vibe/ already exists, skipping init'));
-  }
+  if (!exists(vibeDir)) cmdInit(targetDir);
+  else console.log(yellow('\n  ⊘ .vibe/ already exists, skipping init'));
 
-  if (!exists(docsDir) || fs.readdirSync(docsDir).length === 0) {
-    cmdDocs(targetDir);
-  } else {
-    cmdDocs(targetDir); // docs command already handles existing files gracefully
-  }
+  cmdDocs(targetDir);
 }
 
 function cmdReset(targetDir) {
@@ -347,54 +363,45 @@ function cmdReset(targetDir) {
 
 function printNextSteps() {
   console.log('');
-  console.log(bold('  Next steps:'));
+  console.log(bold('  What to do next:'));
   console.log('');
-  console.log('  1. Point your AI coding agent at this project');
-  console.log('  2. Tell it:');
+  console.log('  Tell your AI coding agent:');
   console.log('');
   console.log(cyan('     "Read .vibe/VIBE_GUIDE.md, then analyze this codebase'));
-  console.log(cyan('      and fill out all the skeleton files in .vibe/'));
+  console.log(cyan('      and fill out all the skeleton files in .vibe/ and docs/.'));
+  console.log(cyan('      For files that aren\'t relevant (like business.md for a'));
+  console.log(cyan('      library), write N/A with a brief explanation.'));
   console.log(cyan('      Ask me any questions you can\'t answer from the code."'));
-  console.log('');
-  console.log('  3. Run ' + cyan('vibes docs') + ' to scaffold operational docs too');
-  console.log('  4. Review the output, commit to version control');
   console.log('');
 }
 
 function printHelp() {
   console.log('');
-  console.log(bold('  vibes') + ' — Semantic layers + standardized docs for humans and AI');
+  console.log(bold('  vibes') + ' — The complete semantic layer for any project');
   console.log('');
   console.log('  ' + bold('Usage:'));
   console.log('');
-  console.log('    vibes init      Create .vibe/ semantic layer (6 files)');
+  console.log('    vibes init      Create .vibe/ with the full suite (15 files + guide)');
   console.log('    vibes docs      Create docs/ operational documentation (11 files)');
   console.log('    vibes all       Create both .vibe/ and docs/ at once');
   console.log('    vibes check     Validate all files for completeness');
-  console.log('    vibes status    Quick health overview');
+  console.log('    vibes status    Quick health dashboard');
   console.log('    vibes reset     Delete and recreate everything');
   console.log('    vibes help      Show this help message');
   console.log('');
-  console.log('  ' + bold('.vibe/') + dim(' — Semantic layer (intent, decisions, flows)'));
-  console.log('  ' + dim('├── purpose.md       — What is this? Who is it for?'));
-  console.log('  ' + dim('├── architecture.md  — Systems and how they connect'));
-  console.log('  ' + dim('├── flows.md         — User journeys, step by step'));
-  console.log('  ' + dim('├── entities.md      — Important nouns and relationships'));
-  console.log('  ' + dim('├── decisions.md     — Why things exist the way they do'));
-  console.log('  ' + dim('└── state.json       — Machine-readable project health'));
+  console.log('  ' + bold('.vibe/') + dim(' — Project memory'));
+  console.log(dim('  Core:      purpose · architecture · flows · entities · decisions · state'));
+  console.log(dim('  Context:   context (living state, updated weekly)'));
+  console.log(dim('  AI:        ai (agent constraints, safe zones, rules)'));
+  console.log(dim('  Product:   product · users · metrics · experiments'));
+  console.log(dim('  Business:  business · market · risks'));
   console.log('');
-  console.log('  ' + bold('docs/') + dim(' — Operational docs (topology, API, issues, guides)'));
-  console.log('  ' + dim('├── README.md          — Executive summary'));
-  console.log('  ' + dim('├── topology.md        — File/folder map'));
-  console.log('  ' + dim('├── architecture.md    — Component-level details'));
-  console.log('  ' + dim('├── api.md             — API endpoints'));
-  console.log('  ' + dim('├── issues.md          — Open bugs and blockers'));
-  console.log('  ' + dim('├── resolved.md        — Closed issues archive'));
-  console.log('  ' + dim('├── roadmap.md         — Milestones and priorities'));
-  console.log('  ' + dim('├── developer_guide.md — Setup, build, test, deploy'));
-  console.log('  ' + dim('├── troubleshooting.md — Common errors and fixes'));
-  console.log('  ' + dim('├── glossary.md        — Project-specific terms'));
-  console.log('  ' + dim('└── decisions/         — Architecture decision records'));
+  console.log('  ' + bold('docs/') + dim(' — Operational documentation'));
+  console.log(dim('  README · topology · architecture · api · issues · resolved'));
+  console.log(dim('  roadmap · developer_guide · troubleshooting · glossary · decisions/'));
+  console.log('');
+  console.log(dim('  Files that aren\'t relevant to your project? Mark them N/A.'));
+  console.log(dim('  Your AI agent will figure out which ones apply.'));
   console.log('');
 }
 

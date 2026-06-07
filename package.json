@@ -1,7 +1,7 @@
 {
   "name": "vibe-me",
-  "version": "2.0.0",
-  "description": "Create a .vibe/ semantic repository layer for any project. Helps humans and AI agents understand your codebase without reading the source.",
+  "version": "3.0.0",
+  "description": "The complete semantic layer for any project. Repository memory, product memory, business memory, AI instructions, and living context — so any human or AI can understand your project without reading the source.",
   "keywords": [
     "vibes",
     "vibe",

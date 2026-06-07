@@ -1,0 +1,12 @@
+{
+  "version": "0.1.0",
+  "health": "active",
+  "status": "prototype",
+  "last_audit": "TIMESTAMP",
+  "languages": {},
+  "known_issues": [],
+  "dependencies": [],
+  "constraints": [],
+  "vibe_version": "1.0",
+  "vibe_updated": "TIMESTAMP"
+}

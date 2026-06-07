@@ -1,0 +1,34 @@
+{
+  "name": "vibes",
+  "version": "1.0.0",
+  "description": "Create a .vibe/ semantic repository layer for any project. Helps humans and AI agents understand your codebase without reading the source.",
+  "keywords": [
+    "vibes",
+    "vibe",
+    "documentation",
+    "ai",
+    "semantic",
+    "repository",
+    "context",
+    "coding-agent",
+    "vibe-coding",
+    "developer-tools"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bin": {
+    "vibes": "./bin/vibes.js"
+  },
+  "files": [
+    "bin/",
+    "templates/",
+    "spec/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

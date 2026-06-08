@@ -1,4 +1,5 @@
 {
+  "project": "PROJECT_NAME",
   "version": "0.1.0",
   "health": "active",
   "status": "prototype",
@@ -7,6 +8,6 @@
   "known_issues": [],
   "dependencies": [],
   "constraints": [],
-  "vibe_version": "1.0",
+  "vibe_version": "3.2.0",
   "vibe_updated": "TIMESTAMP"
 }

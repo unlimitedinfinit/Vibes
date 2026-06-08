@@ -2,7 +2,7 @@
 
 # 🌀 vibes
 
-### Every project should contain a continuously maintained,<br>AI-readable and human-readable model of itself.
+### Project memory. Cross-project intelligence.<br>One command per project. One hub for all of them.
 
 [![npm version](https://img.shields.io/npm/v/vibe-me?style=flat-square&color=7c3aed&label=npm)](https://www.npmjs.com/package/vibe-me)
 [![license](https://img.shields.io/badge/license-MIT-10b981?style=flat-square)](LICENSE)
@@ -11,16 +11,19 @@
 
 <br>
 
-**One command. Full project memory. Total clarity.**
+**Scaffold. Fill. Validate. Sync. Get feedback.**
 
-`vibes` creates a `.vibe/` semantic layer and a standardized `docs/` folder —<br>
-so any human or AI can understand your project, your product, and your business<br>
-without reading the source code.
+`vibes` gives every project a `.vibe/` semantic layer and `docs/` folder —<br>
+then connects all your projects through a **Vibes Hub** that finds patterns,<br>
+surfaces improvements, and lets your best work raise the bar everywhere.
 
 <br>
 
-```bash
-npx vibe-me all
+```
+npx vibe-me all          # scaffold .vibe/ + docs/ in any project
+npx vibe-me check        # validate quality (catches unfilled templates)
+npx vibe-me export       # sync to your hub
+npx vibe-me insights     # get cross-project feedback
 ```
 
 <br>
@@ -69,6 +72,7 @@ Not a wiki. Not a Confluence graveyard. Not a 200-page design doc nobody reads. 
 - Nobody knows the pricing rationale or competitive landscape
 - User frustrations are invisible — product decisions are guesswork
 - Documentation rots because nobody owns it
+- Your projects are islands — lessons learned in one are invisible to others
 
 </td>
 <td width="50%">
@@ -81,14 +85,15 @@ Not a wiki. Not a Confluence graveyard. Not a 200-page design doc nobody reads. 
 - Business strategy, pricing, and market position are documented
 - User personas include emotional reality — fears, confusion, goals
 - Documentation stays fresh because the AI updates it
+- **Hub connects all your projects** — patterns, standards, and improvements flow between them
 
 </td>
 </tr>
 </table>
 
-> **This isn't documentation. It's a digital twin of your entire venture.**<br>
+> **This isn't documentation. It's a digital twin of your entire portfolio.**<br>
 > Repository memory. Product memory. Business memory. AI instructions. Living context.<br>
-> It's the difference between a repository and a *project that explains itself.*
+> Each project explains itself — and the hub makes all your projects learn from each other.
 
 ---
 
@@ -206,6 +211,7 @@ Download [`Vibe.bat`](Vibe.bat), drop it in any project folder, and double-click
 | | |
 | `vibes hub <path>` | Set up a central hub — git inits, creates `_insights/`, saves config |
 | `vibes export` | Export `.vibe/` + `docs/` from current project to your hub |
+| `vibes insights` | Show hub feedback for this project — opportunities, standards, anti-patterns |
 | `vibes help` | Show all commands |
 
 ---
@@ -315,19 +321,29 @@ What it catches:
 
 ---
 
-## 🗂️ Vibes Hub — Cross-Project Sync + Intelligence
+## 🗂️ Vibes Hub — Your Projects Talking to Each Other
 
-When you're running vibes across multiple projects (and multiple computers), the **hub** lets you collect, compare, and analyze them all in one place.
+The hub is where the magic happens. Every project you work on — across any number of computers — exports its `.vibe/` and `docs/` into one central repo. An AI analyzes them all and finds patterns, anti-patterns, and improvements that flow **back** into each project.
 
-### One-time setup
+```
+┌─────────────┐     vibes export     ┌──────────────┐     vibes insights     ┌─────────────┐
+│  Project A   │ ──────────────────→  │   Vibes Hub  │  ←────────────────────  │  Project B  │
+│  .vibe/      │                      │  _insights/  │                         │  .vibe/     │
+│  docs/       │                      │  patterns    │   "You should adopt     │  docs/      │
+└─────────────┘                       │  standards   │    Project A's auth"    └─────────────┘
+                                      │  opportunities│
+                                      └──────────────┘
+```
+
+### Step 1: Set up the hub (one time)
 
 ```bash
 vibes hub ~/Documents/VibeHub
 ```
 
-This creates a folder with git, a README, and an `_insights/` intelligence layer — then walks you through connecting it to a private GitHub repo.
+Creates a folder with git, a README, and an `_insights/` intelligence layer. Connect it to a private GitHub repo so it syncs across machines.
 
-### Export from any project
+### Step 2: Export from each project
 
 ```bash
 cd your-project
@@ -336,13 +352,9 @@ vibes export
 
 Copies `.vibe/` and `docs/` into your hub, organized by project name. Auto-generates an `index.md` dashboard.
 
-### Sync across machines
+### Step 3: AI analysis (after 3+ projects)
 
-Push from one machine, pull on another. Same private repo, all your projects.
-
-### Cross-project intelligence
-
-After exporting 3+ projects, tell your AI agent:
+Tell your AI agent:
 
 > *"Read `_insights/ANALYZE.md` in my Vibes Hub and follow the instructions."*
 
@@ -350,28 +362,68 @@ The AI reads every project's `.vibe/` files and fills out:
 
 | File | What it finds |
 |:---|:---|
-| `_insights/patterns.md` | Architecture, security, and tech stack patterns across projects |
-| `_insights/standards.md` | Universal rules that should apply everywhere |
-| `_insights/opportunities.md` | "Omni does X well → JustLegal should adopt it" |
+| `_insights/patterns.md` | Architecture, security, and tech stack patterns across all projects |
+| `_insights/standards.md` | Universal rules that should apply everywhere (file size limits, schema validation, etc.) |
+| `_insights/opportunities.md` | Specific transfers — "Project A does X well → Project B should adopt it because Y" |
+
+### Step 4: Pull feedback into any project
+
+```bash
+cd your-project
+vibes insights
+```
+
+This reads the hub's `_insights/` and shows you **what applies to the project you're standing in**:
+
+```
+  💡 vibes insights — JustLegal
+
+  ── Opportunities ──
+
+  ⚡ open-season → JustLegal
+     Adopt EXIF metadata scrubbing for user-uploaded files.
+  ⚡ JustPolitics → JustLegal / Spark
+     Mobile-responsive WebKit GPU blur optimizations.
+
+  ── Universal Standards ──
+
+  ◆ Strict File Size Limits
+  ◆ Structured Schema Validation
+  ◆ Local API Access Authentication
+
+  ── Anti-Patterns ──
+
+  ⚠ Unsecured Localhost APIs
+
+  16 insights found. Review _insights/ in your hub for full details.
+```
+
+One project's best practice becomes every project's standard. **Your portfolio gets smarter every time you export.**
+
+### Multi-machine sync
+
+The hub is a standard Git repo. Push from one machine, pull on another:
+
+1. **First machine:** `vibes hub ~/Documents/VibeHub` → push to private GitHub repo
+2. **Other machines:** Clone the repo → `vibes hub ~/path/to/cloned/VibeHub`
+3. Export projects on any machine → commit & push → pull on the other → `vibes insights`
 
 ```
 VibeHub/
-├── index.md              Auto-generated dashboard
+├── index.md                Auto-generated dashboard
 ├── _insights/
-│   ├── ANALYZE.md        Prompt for AI analysis
-│   ├── patterns.md       Cross-project patterns
-│   ├── standards.md      Universal standards
-│   └── opportunities.md  Transferable improvements
-├── Omni/
+│   ├── ANALYZE.md          Prompt for AI analysis
+│   ├── patterns.md         Cross-project patterns
+│   ├── standards.md        Universal standards
+│   └── opportunities.md    Transferable improvements
+├── ProjectA/
 │   ├── .vibe/
 │   └── docs/
-├── JustLegal/
+├── ProjectB/
 │   ├── .vibe/
 │   └── docs/
 └── ...
 ```
-
-One project's best practice becomes every project's standard.
 
 ---
 

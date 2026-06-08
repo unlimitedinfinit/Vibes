@@ -11,6 +11,7 @@ const path = require('path');
 // Config
 // ─────────────────────────────────────────────
 
+const CLI_VERSION = require(path.join(__dirname, '..', 'package.json')).version;
 const VIBE_DIR = '.vibe';
 const DOCS_DIR = 'docs';
 const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
@@ -370,6 +371,17 @@ function cmdCheck(targetDir) {
     console.log(dim('  ── docs/ ──'));
     console.log('');
 
+    // Check for non-lowercase filenames in docs/
+    try {
+      const actualFiles = fs.readdirSync(docsDir).filter(f => f.endsWith('.md'));
+      for (const f of actualFiles) {
+        if (f !== 'README.md' && f !== f.toLowerCase()) {
+          console.log(yellow('  ⚠ ') + f + yellow(' — should be lowercase (' + f.toLowerCase() + ')'));
+          warnings++;
+        }
+      }
+    } catch {}
+
     for (const file of DOCS_FILES) {
       const fp = path.join(docsDir, file);
       if (!exists(fp)) { console.log(yellow('  ⚠ ') + file + ' — missing'); warnings++; continue; }
@@ -392,6 +404,22 @@ function cmdCheck(targetDir) {
         passed++;
       }
     }
+  }
+
+  // ─── Cross-check: vibe_version staleness ───
+  const stateFile = path.join(vibeDir, 'state.json');
+  if (hasVibe && exists(stateFile)) {
+    try {
+      const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+      if (state.vibe_version && state.vibe_version !== CLI_VERSION) {
+        const major = (v) => (v || '').split('.')[0];
+        if (major(state.vibe_version) !== major(CLI_VERSION)) {
+          console.log('');
+          console.log(yellow('  ⚠ ') + `vibe_version in state.json is ${state.vibe_version}, CLI is ${CLI_VERSION}`);
+          warnings++;
+        }
+      }
+    } catch {}
   }
 
   // ─── Summary ───
@@ -870,6 +898,101 @@ function cmdHub(hubPathArg) {
   console.log('');
 }
 
+function cmdInsights(targetDir) {
+  if (!exists(HUB_CONFIG)) {
+    console.log(red('\n  ✖ No hub configured. Run "vibes hub <path>" first.\n'));
+    process.exit(1);
+  }
+
+  const hubPath = fs.readFileSync(HUB_CONFIG, 'utf-8').trim();
+  const insightsDir = path.join(hubPath, '_insights');
+
+  if (!exists(insightsDir)) {
+    console.log(red('\n  ✖ No _insights/ folder in hub. Run the analysis prompt first.\n'));
+    process.exit(1);
+  }
+
+  const name = getProjectName(targetDir);
+  const nameL = name.toLowerCase();
+
+  console.log('');
+  console.log(bold(`  💡 vibes insights — ${name}`));
+
+  let totalHits = 0;
+
+  // ─── Scan opportunities.md ───
+  const oppFile = path.join(insightsDir, 'opportunities.md');
+  if (exists(oppFile)) {
+    const content = fs.readFileSync(oppFile, 'utf-8');
+    // Split by ## headers
+    const sections = content.split(/^## /gm).filter(s => s.trim());
+    const relevant = sections.filter(s => s.toLowerCase().includes(nameL));
+
+    if (relevant.length > 0) {
+      console.log('');
+      console.log(dim('  ── Opportunities ──'));
+      console.log('');
+      for (const section of relevant) {
+        const title = section.split('\n')[0].trim();
+        const whatMatch = section.match(/\*\*What:\*\*\s*(.+)/i);
+        const what = whatMatch ? whatMatch[1].trim() : '';
+        console.log(cyan('  ⚡ ') + title);
+        if (what) console.log(dim('     ') + what);
+        totalHits++;
+      }
+    }
+  }
+
+  // ─── Scan standards.md ───
+  const stdFile = path.join(insightsDir, 'standards.md');
+  if (exists(stdFile)) {
+    const content = fs.readFileSync(stdFile, 'utf-8');
+    const bullets = content.match(/^\d+\.\s+\*\*.+\*\*/gm) || [];
+
+    if (bullets.length > 0) {
+      console.log('');
+      console.log(dim('  ── Universal Standards ──'));
+      console.log('');
+      for (const bullet of bullets) {
+        const clean = bullet.replace(/^\d+\.\s+/, '').replace(/\*\*/g, '');
+        console.log(dim('  ◆ ') + clean);
+        totalHits++;
+      }
+    }
+  }
+
+  // ─── Scan patterns.md for anti-patterns mentioning this project ───
+  const patFile = path.join(insightsDir, 'patterns.md');
+  if (exists(patFile)) {
+    const content = fs.readFileSync(patFile, 'utf-8');
+    const antiSection = content.split('## Common Anti-Patterns')[1];
+    if (antiSection) {
+      const items = antiSection.split(/^\d+\./gm).filter(s => s.trim());
+      const relevant = items.filter(s => s.toLowerCase().includes(nameL));
+
+      if (relevant.length > 0) {
+        console.log('');
+        console.log(dim('  ── Anti-Patterns ──'));
+        console.log('');
+        for (const item of relevant) {
+          const title = item.match(/\*\*(.+?)\*\*/)?.[1] || item.split('\n')[0].trim();
+          console.log(yellow('  ⚠ ') + title);
+          totalHits++;
+        }
+      }
+    }
+  }
+
+  console.log('');
+  if (totalHits === 0) {
+    console.log(dim('  No specific insights found for this project.'));
+    console.log(dim('  Export 3+ projects, then run the analysis prompt in _insights/ANALYZE.md.'));
+  } else {
+    console.log(`  ${totalHits} insights found. Review _insights/ in your hub for full details.`);
+  }
+  console.log('');
+}
+
 function printNextSteps() {
   console.log('');
   console.log(bold('  What to do next:'));
@@ -896,6 +1019,7 @@ function printHelp() {
   console.log('    vibes check           Validate all files for completeness');
   console.log('    vibes status          Quick health dashboard');
   console.log('    vibes reset           Delete and recreate everything');
+  console.log('    vibes insights        Show hub feedback for this project');
   console.log('');
   console.log('  ' + bold('Hub (cross-project sync):'));
   console.log('');
@@ -934,8 +1058,9 @@ switch (command) {
   case 'check':   cmdCheck(targetDir); break;
   case 'status':  cmdStatus(targetDir); break;
   case 'reset':   cmdReset(targetDir); break;
-  case 'export':  cmdExport('.', args[1]); break;
-  case 'hub':     cmdHub(args[1]); break;
+  case 'export':    cmdExport('.', args[1]); break;
+  case 'hub':       cmdHub(args[1]); break;
+  case 'insights':  cmdInsights(targetDir); break;
   case 'help': case '--help': case '-h': printHelp(); break;
   default:
     console.log(red(`\n  Unknown command: ${command}`));

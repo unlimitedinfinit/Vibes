@@ -818,6 +818,57 @@ Never put API keys, passwords, internal URLs, or customer data in `.vibe/` files
 
 ---
 
+## Beyond One Project — The Vibes Hub
+
+Everything above describes how to create a `.vibe/` layer for **one** project. But the real power emerges when you connect multiple projects together.
+
+### The Problem
+
+You're building 5 projects. One has great authentication. Another has a clever caching strategy. A third has a security hole that the first project already solved. But you'd never know — because each project is an island.
+
+### The Solution: Hub + Insights
+
+The `vibe-me` CLI includes a **hub** — a central folder (synced via Git) that collects the `.vibe/` and `docs/` from all your projects. After exporting 3+ projects, an AI analyzes them all and generates cross-project intelligence:
+
+```bash
+# One-time: create a hub
+vibes hub ~/Documents/VibeHub
+
+# From any project: export to the hub
+vibes export
+
+# From any project: see what the hub knows about you
+vibes insights
+```
+
+The AI analysis produces three files in `_insights/`:
+
+- **patterns.md** — Architecture and security patterns shared across projects
+- **standards.md** — Universal rules that should apply everywhere (file size limits, schema validation, token auth, etc.)
+- **opportunities.md** — Specific transfers: "Project A does X well → Project B should adopt it because Y"
+
+Then `vibes insights` reads those files and shows you **only what applies to the project you're standing in** — opportunities targeted at you, standards you might be missing, and anti-patterns you share with other projects.
+
+### Why This Matters
+
+Without a hub, your best ideas are trapped in one project. With a hub:
+- Security patterns from one project become standards for all of them
+- A caching strategy you invented in one app gets recommended to another
+- An anti-pattern detected in one project gets flagged everywhere it appears
+- Your portfolio gets smarter every time you export
+
+### The Workflow
+
+```
+Scaffold (.vibe/) → Fill out → Validate (vibes check) → Export to hub → AI analysis → vibes insights
+       ↑                                                                                      │
+       └──────────────────── Apply feedback, improve ────────────────────────────────────────────┘
+```
+
+This is not just documentation. It's a **feedback loop across your entire portfolio**.
+
+---
+
 ## FAQ
 
 **Q: What if the project is tiny (one file, 200 lines)?**

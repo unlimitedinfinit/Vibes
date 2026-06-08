@@ -33,43 +33,52 @@ npx vibe-me check
 This catches real problems — unfilled templates, missing structure, empty sections.
 Everything should pass before you commit.
 
-## Step 4 (optional): Export to your hub
-
-If you have a Vibes Hub set up for cross-project sync:
+## Step 4: Export to your hub
 
 ```bash
 npx vibe-me export
 ```
 
-Then push your hub repo to sync across machines.
+Copies `.vibe/` + `docs/` into your central hub (auto-updates `index.md`).
+Then commit & push the hub repo to sync across machines.
+
+## Step 5: Get cross-project feedback
+
+```bash
+npx vibe-me insights
+```
+
+Shows you what the hub knows about **this** project — opportunities from other projects,
+universal standards, and anti-patterns. Your best work in one project raises the bar everywhere.
 
 ---
 
-## First-time hub setup
+## Hub setup (one time per computer)
 
-If you're managing multiple projects across multiple computers:
+**First computer:**
 
 ```bash
-# One-time: create the hub (auto-inits git + creates _insights/)
+# Create the hub (auto-inits git + creates _insights/)
 npx vibe-me hub ~/Documents/VibeHub
 
-# Connect to GitHub (the command prints these exact steps)
-cd ~/Documents/VibeHub
-git remote add origin git@github.com:YOUR_USERNAME/VibeHub.git
-git add -A && git commit -m "init hub" && git push -u origin main
+# Connect to a private GitHub repo
+# (the command prints exact steps, or use GitHub Desktop)
 ```
 
-Then from any project on any machine:
-```bash
-npx vibe-me export
-cd ~/Documents/VibeHub && git add -A && git commit -m "update" && git push
-```
+**Other computers:**
 
-On another computer:
 ```bash
+# Clone the repo first, then link it
 git clone git@github.com:YOUR_USERNAME/VibeHub.git
 npx vibe-me hub ~/Documents/VibeHub
 ```
+
+**After exporting 3+ projects**, tell your AI agent:
+
+> *"Read `_insights/ANALYZE.md` in my Vibes Hub and follow the instructions."*
+
+The AI fills out `patterns.md`, `standards.md`, and `opportunities.md` —
+then `vibes insights` in any project shows you what applies.
 
 ---
 
